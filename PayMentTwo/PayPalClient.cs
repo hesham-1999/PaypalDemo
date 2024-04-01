@@ -21,6 +21,7 @@ namespace PaypalDemo.PayMentTwo
             Mode = mode;
         }
 
+
         public async Task<AuthResponse> Authenticate()
         {
             var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{ClientId}:{ClientSecret}"));
@@ -67,7 +68,13 @@ namespace PaypalDemo.PayMentTwo
                             value = value
                         }
                     }
+
+                },
+                application_context =new ApplicationContext(){
+                    return_url = "http://127.0.0.1:5500/sucsess.html",
+                    cancel_url = "http://127.0.0.1:5500/cancel.html"
                 }
+
             };
 
             var httpClient = new HttpClient();
@@ -99,7 +106,72 @@ namespace PaypalDemo.PayMentTwo
 
             return response;
         }
+
+
+        // payment by credit
+        public async Task<CreateOrderResponse> CreateOrderByCredit(string value, string currency, string reference , string cardNumber , string expire, string name)
+        {
+            var auth = await Authenticate();
+
+            var request = new CreateOrderRequestByCredit
+            {
+                intent = "CAPTURE",
+                purchase_units = new List<PurchaseUnit>
+                {
+                    new()
+                    {
+                        reference_id = reference,
+                        amount = new Amount
+                        {
+                            currency_code = currency,
+                            value = value
+                        }
+                    }
+
+                },
+                application_context = new ApplicationContext()
+                {
+                    return_url = "http://127.0.0.1:5500/sucsess.html",
+                    cancel_url = "http://127.0.0.1:5500/cancel.html"
+                },
+                payment_source_card = new PaymentSourceCard()
+                {
+                    card = new Card()
+                    {
+                        number = cardNumber,
+                        expiry = expire,
+                        name = name
+                    },
+                    attributes = new Attributes()
+                    {
+                        verification = new Verification()
+                        {
+                            method = "SCA_WHEN_REQUIRED"
+                        },
+                        vault = new Vault()
+                        {
+                            store_in_vault = "ON_SUCCESS"
+                        }
+                    }
+                }
+
+            };
+
+            var httpClient = new HttpClient();
+
+            httpClient.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse($"Bearer {auth.access_token}");
+
+            var httpResponse = await httpClient.PostAsJsonAsync($"{BaseUrl}/v2/checkout/orders", request);
+
+            var jsonResponse = await httpResponse.Content.ReadAsStringAsync();
+            var response = JsonSerializer.Deserialize<CreateOrderResponse>(jsonResponse);
+
+            return response;
+        }
     }
+
+  
+
 
     public sealed class AuthResponse
     {
@@ -115,7 +187,24 @@ namespace PaypalDemo.PayMentTwo
     {
         public string intent { get; set; }
         public List<PurchaseUnit> purchase_units { get; set; } = new();
+        public   ApplicationContext application_context { get; set; }= new();
+
     }
+    public sealed class CreateOrderRequestByCredit
+    {
+        public string intent { get; set; }
+        public List<PurchaseUnit> purchase_units { get; set; } = new();
+        public ApplicationContext application_context { get; set; } = new();
+        public PaymentSourceCard payment_source_card { get; set; } = new();
+
+    }
+    public class ApplicationContext
+    {
+        public string return_url { get; set; }
+        public string cancel_url { get; set; }
+    }
+   
+
 
     public sealed class CreateOrderResponse
     {
@@ -227,9 +316,50 @@ namespace PaypalDemo.PayMentTwo
         public string email_address { get; set; }
         public string payer_id { get; set; }
     }
-
     public sealed class PaymentSource
     {
         public Paypal paypal { get; set; }
+    }
+
+    // Payment By Credit 
+    public class BillingAddress
+    {
+        public string address_line_1 { get; set; }
+        public string address_line_2 { get; set; }
+        public string admin_area_2 { get; set; }
+        public string admin_area_1 { get; set; }
+        public string postal_code { get; set; }
+        public string country_code { get; set; }
+    }
+
+    public class Verification
+    {
+        public string method { get; set; }
+    }
+
+    public class Vault
+    {
+        public string store_in_vault { get; set; }
+    }
+
+    public class Attributes
+    {
+        public Verification verification { get; set; }
+        public Vault vault { get; set; }
+    }
+
+    public class Card
+    {
+        public string number { get; set; }
+        public string expiry { get; set; }
+        public string name { get; set; }
+        public BillingAddress billing_address { get; set; }
+        public Attributes attributes { get; set; }
+    }
+
+    public class PaymentSourceCard
+    {
+        public Card card { get; set; } = new();
+        public Attributes attributes { get; set; } = new();
     }
 }

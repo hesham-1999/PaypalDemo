@@ -42,7 +42,15 @@ namespace PaypalDemo.Controllers
 
             return Ok(response);
         }
-
+        [HttpPost]
+        [Route("CreateOrderByCard")]
+        public async Task<IActionResult> CreateOrderByCard(CreateOrderByCardRequest request)
+        {
+            var paypalclient = new PaypalClient(payPalSetting.ClientId, payPalSetting.ClientSecret, payPalSetting.Mode);
+            var order = await paypalclient.CreateOrderByCredit("150", "USD", Guid.NewGuid().ToString(),request.CardNumber , request.ExpiryDate,request.Name);
+          
+            return Ok(order);
+        }
 
         //public IPaymentService PaymentService { get; }
 
